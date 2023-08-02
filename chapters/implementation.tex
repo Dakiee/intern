@@ -1,0 +1,321 @@
+\section{Мерчант веб төсөл}
+
+Дадлагын хугацаанд Laravel болон JQuery судалж шаардлагын дагуу тухайн вэб сайтыг гүйцэтгэж амжиллтай бүтээгдэхүүн болгон гаргав. (\href{https://merchant.capitronbank.mn/}{Capitron's Merchant Website})
+
+Сурах ур чадвар: 
+\begin{itemize}
+    \item Git-ийг хэрхэн зөв ашиглах, мэдэлэгээ тэлэх
+    \item Web site боловсруулах үйл явц, арга зүйн талаархи ойлголттой болох
+    \item Програм хангамжийн аюулгүй байдал, нууцлалын тухай сурах
+    \item Цэвэрхэн цэгцтэй код бичиж сурах
+    \item Асуудал гарж ирэхэд түүнийгээ зөв түлхүүр үгсээр хайн шийдлийг олох
+\end{itemize}
+
+Системийн шаардлага: 
+\begin{itemize}
+    \item Layout ашигласан байх
+    \item Responsive байх
+    \item Modal ашигласан байх
+    \item Формийн утгуудыг ajax ашиглан барьж авдаг байх
+    \item Laravel Model - тай байх
+    \item Ajax ашиглан хүсэлт явуулах үед хариу ирэх хүртэл blockUI ашиглах
+    \item Google captcha ашиглах
+\end{itemize}
+
+\subsection{Layout ашиглан вэб сайтын нүүр хэсгийг зурах}
+
+Эхний даалгавар бол Layout үүсгэн түүнийгээ Laravel - ын нүүр хуудасны blade.php дээрээ ашиглан кодыг маш эмх цэгцтэй, уншиж өөрчлөлт оруулахад хялбар болгох юм.
+
+\begin{lstlisting}[language=Php, caption=Layout үүсгэсэн байдал, frame=single]
+<!doctype html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-topbar="light" data-sidebar-image="none">
+
+    <head>
+    <meta charset="utf-8" />
+    <title>@yield('title')Капитрон Банк | МЕРЧАНТЫН ТҮР ДАНСНЫ ХУУЛГА</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="_token" content="{{ csrf_token() }}">
+    <meta content="Merchant & Dashboard" name="description" />
+    <meta content="Capitron" name="author" />
+    <link rel="shortcut icon" href="{{ URL::asset('assets/images/favicon.ico')}}">
+        @include('layouts.merchant.head-css')
+    </head>
+
+    @yield('body')
+    @yield('content')
+
+    @include('layouts.merchant.vendor-scripts')
+    </body>
+</html>
+
+\end{lstlisting}
+
+ Script, css, sidebar, topbar, footer зэрэг олон төрлөөр Layout үүсгэн доорх кодонд хэрхэн хэрэглэж байгааг харуулав. 
+
+\begin{lstlisting}[language=Php, caption=Үүсгэсэн Layout-аа ашигласан байдал, frame=single]
+@extends('layouts.merchant.master-layouts')
+@include('layouts.customCss')
+@section('content')
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                ...................................
+            </div>
+        </div>
+    </div>
+@endsection
+@include('layouts.vendor-scripts')
+\end{lstlisting}
+\pagebreak
+
+\subsection{JQuery болон Ajax ашиглан хүсэлтийг modal байдлаар гаргах}
+
+jQuery болон Ajax модаль нь jQuery болон Ajax ашиглан бүтээгдсэн модаль цонх бөгөөд хуудсыг дахин шинэчлэх шаардлагагүйгээр динамик контентыг ачаалах боломжийг олгодог. Энэ нь хэрэглэгчийн өгөгдлийг хурдан, илүү үр дүнтэй ачаалах боломжийг олгодог.
+
+\begin{lstlisting}[language=Javascript, caption=JQuery Ajax ашиглан controller луугаа өгөгдөлүүдээ шидэх, frame=single]
+	$(function renderQpayModal() {
+                $(".get_qpay_btn").on("click", function(event) {
+                    var $dialogName = '#dialog_qpay';
+                    if (!$($dialogName).length) {
+                        $('<div id="' + $dialogName.replace('#', '') + '"></div>').appendTo('body');
+                    }
+                    var $dialog = $($dialogName);
+                    var Y = window.pageYOffset;
+                    $.ajax({
+                        type: 'get',
+                        success: function(data) {
+                            $dialog.empty().append(data);
+                            $("#dialog_qpay").dialog({
+                                open: function(event, ui) {
+                                    $(this).parent().css({
+                                        'top': Y + 100
+                                    });
+                                },
+                                width: '50%',
+                                maxWidth: 500,
+                                height: 'auto',
+                                modal: true,
+                                fluid: true,
+                                resizable: false
+                            });
+                            $dialog.dialog('open');
+                        }
+                    });
+                });
+            });
+\end{lstlisting}
+
+Үүний дараа хийх үйлдлүүдээ controller дотор тодорхойлно. Controller оо ашиглан урд талруугаа modal агуулсан view ээ дамжуулж өгнө.
+
+\begin{lstlisting}[language=php, caption=Хийх үйлдлүүдийг тодорхойлох, frame=single]
+function qpayForm(){
+    $city = DB::connection('oracle_smartbank')->select($pacity_query);
+    $code = DB::connection('oracle_smartbank')->select($code_query);
+    $dist = DB::connection('oracle_smartbank')->select($padist_query);
+
+    return view('merchant.qpay', compact('city', 'code', 'dist','text'));
+}
+\end{lstlisting}
+
+\subsection{JQuery болон Ajax ашиглан хүсэлтийг удирдах}
+ Форм submit хийгдсэн тохиолдолд бүх талбарт баталгаажуулалт хийж, амжилттай давбал талбар дахь утгуудыг JQuery-гээр барьж аван Controller луу явуулах. 
+\begin{lstlisting}[language=Javascript, caption=JQuery catching form values, frame=single]
+	$(".btn_submit").on("click", function(event) {
+
+        if (!first_name || !last_name || !register_number || !merchant_app_phone_number || !
+            email || !merchant_name_mn || !address_detail || !merchant_name_en) {
+            Swal.fire({
+                title: 'Цуцлагдлаа',
+                text: 'Таны аль нэг талбар хоосон байна',
+                icon: 'error',
+                confirmButtonClass: 'btn btn-primary mt-2',
+                buttonsStyling: false
+            })
+            return
+        }
+        $.ajax({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            },
+            type: "POST",
+            data: {
+                item: $("#qpay_sub").serialize(),
+            },
+            success: function(data) {
+                $("#dialog_qpay").unblock();
+                if (data == "true") {
+                    Swal.fire({
+                        title: 'Амжилттай',
+                        text: 'Таны явуулсан хүсэлт амжилттай илгээгдлээ',
+                        icon: 'success',
+                        confirmButtonClass: 'btn btn-primary mt-2',
+                        buttonsStyling: false
+                    })
+                    setTimeout(
+                        function() {
+                            $('#dialog_qpay').dialog('close');
+                        }, 1800);
+                } else {
+                    Swal.fire({
+                        title: 'Цуцлагдлаа',
+                        text: 'Та google captcha гаа бөглөнө үү',
+                        icon: 'error',
+                        confirmButtonClass: 'btn btn-primary mt-2',
+                        buttonsStyling: false
+                    })
+                }
+            }
+        });
+    });
+\end{lstlisting}
+
+Хүсэлт Controller дээр тооцоолол хийж байх үед blockUI ажиллана
+
+\begin{lstlisting}[language=Javascript, caption=blockUI ашигласан байдал, frame=single]
+	beforeSend: function() {
+                $("#dialog_qpay").block({
+                    message: 'Уншиж байна түр хүлээнэ үү',
+                    css: {
+                        fontSize: '16px',
+                        border: 'none',
+                        padding: '15px',
+                        backgroundColor: '#000',
+                        '-webkit-border-radius': '10px',
+                        '-moz-border-radius': '10px',
+                        opacity: .9,
+                        color: '#fff'
+                    }
+                });
+            },
+\end{lstlisting}
+Controller дээр шинэ Model үүсгэж явуулсан өгөгдлийг Request ээс хүлээн авч өгөгдлийг баазд Log үүсгэн хамт хадгалж буй үйлдлийг доор харуулав.
+Model нь өгөгдлийн сантай харилцах энгийн бөгөөд гоёмсог арга замыг бий болгож, үүсгэх, унших, шинэчлэх, устгах (CRUD) зэрэг өгөгдлийн сангийн нийтлэг үйлдлүүдийг гүйцэтгэх, түүнчлэн асуулга үүсгэх, хүснэгт хоорондын харилцааг бий болгох боломжийг олгодог.
+
+
+\section{Merchant Loyalty}
+
+Энэхүү даалгаварын гол зорилго нь Капитрон банктай хамтран ажиллаж хямдрал олгодог байгууллагуудыг мерчантуудад харуулах үүргэтэй. Вэб хуудсын админ хэсэгт loaylty хэсгийг динамик байдлаар шийдэх. 
+
+Формын шаардлага: 
+\begin{itemize}
+    \item Navbar item ашиглах
+    \item Лоялти хэсэг байгууллагуудыг төрлүүдээр нь хуваадаг байх
+    \item Олон зураг зэрэг гаргадаг байх
+    \item Байгууллагуудын логог үүсгэх, цэвэрлэх, устгах үйлдлүүдтэй байх
+\end{itemize}
+
+\subsection{Байгууллагуудын зураг, төрлийг хадгалах бааз дээрх хүснэгт үүсгэх}
+
+Laravel framework-ийн Migration буюу хөгжүүлэгчдэд өгөгдлийн сангийн схемийг олон хөгжүүлэгчд хоорондоо хуваалцахад хялбар болгож, өөр өөр орчинд байрлуулах, удирдах боломжийг олгодог.
+
+\begin{lstlisting}[language=Php, caption=loyalty category нэртэй хүснэгт үүсгэх migration, frame=single]
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+
+    /**
+     * Run the migrations.
+     *
+     * @return void
+     */
+     
+    public function up()
+    {
+        Schema::create('test', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('code');
+            $table->timestamps();
+        });
+    }
+
+
+    /**
+     * Reverse the migrations.
+     *
+     * @return void
+     */
+    public function down()
+    {
+        Schema::dropIfExists('test');
+    }
+};
+
+\end{lstlisting}
+
+Тухайн хүснэгтэнд зориулж Model үүсгэсэн байдал
+
+\begin{lstlisting}[language=Php, caption=Loyalty Model, frame=single]
+<?php
+
+namespace App\Models\Admin;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Loyalty extends Model
+{
+    use HasFactory;
+
+    protected $table = 'loyalty';
+}
+
+\end{lstlisting}
+
+Үүсгэсэн model-ийнхаа мэдээллүүдийг all() function ашиглан бүх өгөгдлийг нь авж view-рүүнгээ дамжуулан буцаах.
+
+\begin{lstlisting}[language=Javascript, caption=View буцаах, frame=single]
+public function loyalty()
+{
+    return view('admin.loyalty.index', compact('images'));
+}
+
+\end{lstlisting}
+\pagebreak
+View дээрээ хэрхэн controller-оос ирсэн датаг рэндэр хийж байгааг доор харуулав
+
+\subsection{Admin эрхтэй CRUD хэсэг}
+
+CRUD гэдэг нь ихэвчлэн вэб програмын мэдээллийн санг удирдах үндсэн функцуудыг хэлдэг.
+Эдгээр үйлдлүүд нь шинэ бүртгэл үүсгэх, байгаа бүртгэлийг унших, сэргээх, байгаа бүртгэлийг шинэчлэх, шаардлагатай бол бүртгэлийг устгах боломжийг олгоно.
+
+Laravel-д route гэдэг нь controller дахь тодорхой үйлдлийг харуулсан URL загваруудыг хэлдэг.Route тодорхойлсноор ямар controller-д ирж буй хүсэлтийг зохицуулах ёстойг, мөн route руу дамжуулах параметрүүдийг зааж өгч болно.
+
+\begin{lstlisting}[language=php, caption=web.php буюу route, frame=single]
+Route::get('/loyalty', [MainController::class, 'loyalty'])->name('loyalties');
+\end{lstlisting}
+
+Энэ route нь URL /loyalty/edit/{id} руу ирж буй GET хүсэлтийг URL-аас {id} параметрийг дамжуулна. Controller дээр энэ параметрийг ашиглан өгөгдлийн сангаас тохирох хэрэглэгчийг татаж аваад хариу өгөх боломжтой.
+
+Ийм байдлаар route болон controller нь ирж буй хүсэлтийг зохицуулж, зохих өгөгдлөөр хариу байдлаар хамтран ажилладаг.
+
+\begin{lstlisting}[language=php, caption=Route example, frame=single]
+Route::get('/loyalty/edit/{item}', [MainController::class, 'editLoyalty'])->name('EditLoyalties');
+\end{lstlisting}
+
+Шинээр байгууллагийн лого, төрлийг request ээс барьж аван үүсгэж буй байдал.
+
+\begin{lstlisting}[language=Javascript, caption=Creating new logo and category, frame=single]
+public function storeLoyalty(Request $request){
+    date_default_timezone_set('Asia/Hong_Kong');
+    $date = date('Y_m_d_h_i_s');
+    $path = $request->file('image')->getClientOriginalName();
+    $id = DB::connection('oracle')->getSequence()->nextValue('BUYANBAT.LOYALTY_ID_SEQ');
+    $category = $request->category;
+
+    $request->file('image')->move(public_path('images'), $date . $path);
+    $loyalty = new Loyalty();
+    $loyalty->id = $id;
+    $loyalty->image = $date . $path;
+    $loyalty->category = $category;
+    $loyalty->save();
+
+    return redirect('admin/loyalty');
+}
+\end{lstlisting}
+\pagebreak
